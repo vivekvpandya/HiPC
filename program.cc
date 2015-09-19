@@ -6,10 +6,12 @@
 #include <cmath>
 #include <random>
 #include <cstdlib>
+#include <utility>
 
 std::vector< std::vector<double> > dataPointsVector;
 std::vector< std::vector<double> > sample;
-std::vector< std::vector<double> > medoids;
+std::vector< std::vector<double> > greedyMedoids;
+std::vector< std::vector<double> > medoids_current;
 std::vector<double> v;
 
 
@@ -21,7 +23,14 @@ inline double closed_interval_rand(double x0, double x1)
 }
 
 std::vector< std::vector<double> > greedySample(std::vector< std::vector<double> > *dataPointsVector, int size);
-
+std::vector< std::vector<double> > nearPoints(std::vector< std::vector<double> > *dataPointsVector, std::vector<double> *medoid, double radius);
+std::vector< std::vector<int> > findDimensions(int k, int l,std::vector< std::vector< std::vector<double> > > *L , std::vector< std::vector<double> > *medoids);
+std::vector<double> avgDist(std::vector< std::vector<double> > *Li,  std::vector<double>  *medoid);
+double manhattanSegDisDim(std::vector<double> *x1 , std::vector<double> *x2, int numDim);
+bool pairCompare(const std::pair<double, int>& firstElem, const std::pair<double, int>& secondElem) {
+    return firstElem.first < secondElem.first;
+    
+}
 
 int main()
 {   std::cout.precision(15);
@@ -31,6 +40,7 @@ int main()
     int n_cluster = 0;
     int const_a = 50;
     int const_b = 2;
+    int l;
     
     //std::ifstream  data("smallerds.csv");
     std::ifstream  data("/Users/Mr.Pandya/Documents/HiPC/Program/Program/bigData.csv");
@@ -63,6 +73,8 @@ int main()
     // }
     std::cout << "Enter initial number of medoids: ";
     std::cin >> n_cluster;
+    std::cout << "Enter the value for l: ";
+    std::cin >> l;
     sample = randomInitialSample(&dataPointsVector,n_cluster*const_a);
     
     
@@ -74,11 +86,70 @@ int main()
     
     //       std::cout << std::fixed << data << " ";
     //  }
-    medoids = greedySample(&sample,n_cluster*const_b);
-    std::vector<double> medoid1 = medoids.at(n_cluster*const_b - 1);
-    for(double val : medoid1){
-        std::cout << std::fixed <<val ;
+    
+    greedyMedoids = greedySample(&sample,n_cluster*const_b);  // This will sample const_b*n_cluster
+    
+    //std::vector<double> medoid1 = greedyMedoids.at(n_cluster*const_b - 1);
+    //for(double val : medoid1){
+    //    std::cout << std::fixed <<val ;
+    //}
+    //std::cout << " \n";
+    
+    medoids_current = greedySample(&greedyMedoids,n_cluster); // This will produce final sample of size n_cluster
+    
+//    for ( int iterate_medoids = 0; iterate_medoids < n_cluster; iterate_medoids++) {
+//        std::vector<double> medoid = medoids.at(iterate_medoids);
+//        std::cout << "Medoid " << iterate_medoids << " : ";
+//        for ( double data : medoid) {
+//            std::cout << std::fixed << data ;
+//        }
+//        std::cout << '\n';
+//    }
+    
+    std::vector< std::vector< std::vector<double> > > Li;
+    
+    char terminate  = 'N';
+    while (terminate != 'Y') {
+        int medoid_size = medoids_current.size();
+        double newDist = 1000.00 ;
+        double oldDist = 100000.00;
+        // Make these loops based on int counter
+        for (int iter1 = 0; iter1 < medoid_size ; iter1++) {
+            std::vector<double> medoid = medoids_current.at(iter1);
+            
+          
+            for( int iter2 =0 ; iter2 < medoid_size ; iter2++ ){
+                if (iter1 != iter2) {
+                    std::vector<double>  data = medoids_current.at(iter2);
+                    newDist = manhattanSegDis(&data,&medoid);
+                    if(newDist < oldDist){
+                        oldDist = newDist;
+                    }
+                    
+                }
+               
+             
+            }
+            
+           Li.push_back(nearPoints(&dataPointsVector, &medoid, oldDist));
+            
+        }
+        
+        std::vector< std::vector<int> > Di = findDimensions(medoid_size, l, &Li, &medoids_current); // This returns repeated dimensions
+        std::vector<int> di = Di.at(3);
+        for (int dim : di){
+            std::cout<< dim << '\n';
+        }
+        std::cout << "\n\n";
+        std::vector<int> d2 = Di.at(6);
+        for (int dim : d2){
+            std::cout<< dim << '\n';
+        }
+        
+        std::cout << "Would you like to terminate and return the result? " ;
+        std::cin >> terminate;
     }
+    
     
     
     
@@ -107,6 +178,20 @@ double manhattanSegDis(std::vector<double> *x1 , std::vector<double> *x2){
     
     
     
+    
+}
+
+double manhattanSegDisDim(std::vector<double> *x1 , std::vector<double> *x2, int numDim){
+    
+    std::vector<double> *X1 = x1;
+    std::vector<double> *X2 = x2;
+    double totalDis;
+    
+    
+    totalDis = std::abs(X1->at(numDim) - X2->at(numDim));
+    
+    
+    return totalDis;
     
 }
 
@@ -151,7 +236,7 @@ std::vector< std::vector<double> > greedySample(std::vector< std::vector<double>
     int maxEleIndex;
     for (int i = 1 ; i < size; i++ ){
          maxEleIndex = std::distance( distance.begin(), std::max_element(distance.begin(), distance.end()));
-        std::cout << " Farthest element: " << maxEleIndex << '\n';
+        //std::cout << " Farthest element: " << maxEleIndex << '\n';
         m = inputDataPoints->at(maxEleIndex);
         medoids.push_back(m);
         inputDataPoints->erase(inputDataPoints->begin() + maxEleIndex);
@@ -172,4 +257,99 @@ std::vector< std::vector<double> > greedySample(std::vector< std::vector<double>
     
     return medoids;
     
+}
+
+
+
+std::vector< std::vector<double> > nearPoints(std::vector< std::vector<double> > *dataPointsVector, std::vector<double> *medoid, double radius){
+
+    std::vector< std::vector<double> > nearestDataPoints ;
+    
+    double distance;
+    for( std::vector<double> data : *dataPointsVector){
+        
+        distance = manhattanSegDis(&data,medoid);
+        double diff = distance - radius;
+        if ( diff <= 0.00) {
+           // std::cout << "Points added to medoid with radius "<<radius;
+            nearestDataPoints.push_back(data);
+        }
+    }
+    
+    
+    return nearestDataPoints;
+}
+
+std::vector<double> avgDist(std::vector< std::vector<double> > *Li,  std::vector<double>  *medoid){
+    std::vector<double> avgDistRes ;
+    
+    int numOfPoints = Li->size();
+    int numDim = medoid->size();
+    for( int i = 0; i<numDim ; i++){
+        double totalDis = 0.0;
+        for (std::vector<double> point : *Li) {
+            totalDis += manhattanSegDisDim(&point,medoid, i);
+        }
+        
+        avgDistRes.push_back(totalDis/numOfPoints);
+    }
+
+
+    return avgDistRes;
+}
+
+
+std::vector< std::vector<int> > findDimensions(int k, int l,std::vector< std::vector< std::vector<double> > > *L, std::vector< std::vector<double> > *medoids ){
+    
+    std::vector< std::vector<int> > Di;
+    std::vector< std::pair<double, int> > zij;
+    int numMeds = medoids->size();
+    for (int index = 0; index < numMeds; index++) {
+        
+        std::vector< std::vector<double> > li = L->at(index);
+        std::vector<double> medoid = medoids->at(index);
+        
+        int numDim = medoid.size();
+        std::vector<double> xijs = avgDist(&li, &medoid);
+        
+        double Yi  = 0.0;
+        for (double xij : xijs) {
+            Yi += xij;
+        }
+        
+        Yi = Yi/numDim;
+        
+        double sigi = 0.0;
+        double temp = 0.0;
+        for (double xij : xijs) {
+            temp += ((xij - Yi)*(xij - Yi));
+        }
+        temp /= (numDim -1);
+        sigi = std::sqrt(temp);
+        
+        for ( int j =0; j<numDim; j++)
+        {
+            double xij = xijs.at(j);
+            double diffe = xij - Yi;
+            double z_val = diffe/sigi;
+            zij.push_back(std::make_pair(z_val, j));
+        }
+        
+        
+        std::sort(zij.begin(), zij.end(), pairCompare);
+        
+        int pickNum = k*l;
+        
+        if(pickNum > zij.size() )
+            std::cout<< "K * L size missmatch";
+        else{
+            std::vector<int> di;
+            for (int t = 0; t < pickNum; t++) {
+                di.push_back(zij.at(t).second);
+            }
+            Di.push_back(di);
+        }
+    }
+    
+    return Di;
 }
