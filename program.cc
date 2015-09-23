@@ -13,6 +13,7 @@ std::vector< std::vector<double> > sample;
 std::vector< std::vector<double> > greedyMedoids;
 std::vector< std::vector<double> > medoids_current;
 std::vector<double> v;
+std::vector<int> output;
 
 
 double manhattanSegDis(std::vector<double> *x1 , std::vector<double> *x2);
@@ -27,6 +28,8 @@ std::vector< std::vector<double> > nearPoints(std::vector< std::vector<double> >
 std::vector< std::vector<int> > findDimensions(int k, int l,std::vector< std::vector< std::vector<double> > > *L , std::vector< std::vector<double> > *medoids);
 std::vector<double> avgDist(std::vector< std::vector<double> > *Li,  std::vector<double>  *medoid);
 double manhattanSegDisDim(std::vector<double> *x1 , std::vector<double> *x2, int numDim);
+std::vector<std::vector < std::vector<double> > > assignPoints( std::vector< std::vector<int> > *dimensions, std::vector< std::vector<double> > *medoids);
+double manhattanSegDisWithDim( std::vector<double>  *point , std::vector<double>  *medoid, std::vector<int>  *dimension   );
 bool pairCompare(const std::pair<double, int>& firstElem, const std::pair<double, int>& secondElem) {
     return firstElem.first < secondElem.first;
     
@@ -59,6 +62,7 @@ int main()
             totalData++;
         }
         dataPointsVector.push_back(v);
+        output.push_back(-1); // Initialization of output vector
     }
     dimensions = totalData / dataPoints; // Here we have fixed number of dimension for all data points
     std::cout << "Total dataPoints : " << dataPoints << '\n';
@@ -77,7 +81,7 @@ int main()
     std::cin >> l;
     sample = randomInitialSample(&dataPointsVector,n_cluster*const_a);
     
-    
+    std::cout<<"Random Initial Sample Done ! \n";
     
     
     //  std::vector<double> test = sample.at(n_cluster*const_a );
@@ -88,6 +92,8 @@ int main()
     //  }
     
     greedyMedoids = greedySample(&sample,n_cluster*const_b);  // This will sample const_b*n_cluster
+    std::cout<<"Greedy Sample done! \n";
+    
     
     //std::vector<double> medoid1 = greedyMedoids.at(n_cluster*const_b - 1);
     //for(double val : medoid1){
@@ -97,6 +103,7 @@ int main()
     
     medoids_current = greedySample(&greedyMedoids,n_cluster); // This will produce final sample of size n_cluster
     
+    std::cout <<"Finding medoids done \n";
 //    for ( int iterate_medoids = 0; iterate_medoids < n_cluster; iterate_medoids++) {
 //        std::vector<double> medoid = medoids.at(iterate_medoids);
 //        std::cout << "Medoid " << iterate_medoids << " : ";
@@ -136,14 +143,26 @@ int main()
         }
         
         std::vector< std::vector<int> > Di = findDimensions(medoid_size, l, &Li, &medoids_current); // This returns repeated dimensions
-        std::vector<int> di = Di.at(3);
-        for (int dim : di){
-            std::cout<< dim << '\n';
+//        std::vector<int> di = Di.at(3);
+//        for (int dim : di){
+//            std::cout<< dim << '\n';
+//        }
+//        std::cout << "\n\n";
+//        std::vector<int> d2 = Di.at(6);
+//        for (int dim : d2){
+//            std::cout<< dim << '\n';
+//        }
+//
+        std::cout << "Find Dimension done! \n" ;
+        
+        std::vector< std::vector< std::vector<double> > > clusters = assignPoints(&Di,&medoids_current);
+        int numOfCluster = clusters.size();
+        for (int it = 0; it < numOfCluster; it++) {
+            std::vector< std::vector<double> > cluster = clusters.at(it);
+            std::cout << "Number of points in cluster "<<it<< " : "<<cluster.size()<<'\n';
         }
-        std::cout << "\n\n";
-        std::vector<int> d2 = Di.at(6);
-        for (int dim : d2){
-            std::cout<< dim << '\n';
+        for (int clusterNum : output) {
+            std::cout<<clusterNum <<" ";
         }
         
         std::cout << "Would you like to terminate and return the result? " ;
@@ -352,4 +371,56 @@ std::vector< std::vector<int> > findDimensions(int k, int l,std::vector< std::ve
     }
     
     return Di;
+}
+
+std::vector<std::vector < std::vector<double> > > assignPoints( std::vector< std::vector<int> > *dimensions, std::vector< std::vector<double> > *medoids){
+
+    std::vector< std::vector< std::vector<double> > > Cis;
+    int k  =  dimensions->size();
+    Cis.resize(k);
+    int dataPointIndex = 0;
+    for( std::vector<double> point : dataPointsVector)
+    {   double dist = 10000.0; // Intiallizing with large values
+        int clustIndex = -1;
+        for (int ite =0; ite < k; ite++) {
+            std::vector<int> dimension = dimensions->at(ite);
+            std::vector<double> medoid = medoids->at(ite);
+            double currentDist = manhattanSegDisWithDim(&point,&medoid, &dimension);
+            if (dist > currentDist) {
+                dist = currentDist;
+                clustIndex = ite;
+            }
+            
+        }
+        if (clustIndex != -1) {
+            // else is outlier
+            std::vector<std::vector<double> > ci = Cis.at(clustIndex);
+            ci.push_back(point);
+            Cis.at(clustIndex) = ci;
+            output.at(dataPointIndex) = clustIndex;
+        }
+        std::cout<<"Datapoint "<<dataPointIndex<<" has been clustered!\n";
+        dataPointIndex++;
+        
+        
+    
+    }
+    
+    
+    return Cis;
+}
+
+double manhattanSegDisWithDim( std::vector<double>  *point , std::vector<double>  *medoid, std::vector<int>  *dimension   ){
+    double distance = 0.0;
+    
+    int numDim = dimension->size();
+    int dimeIndex ;
+    for (int it = 0; it < numDim; it++) {
+        dimeIndex = dimension->at(it);
+    
+        distance += std::abs( point->at(dimeIndex) -  medoid->at(dimeIndex));
+        
+    }
+    return  distance/numDim;
+
 }
